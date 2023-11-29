@@ -4,6 +4,7 @@ import io.bootify.biblioteca.domain.Lector;
 import io.bootify.biblioteca.domain.Libro;
 import io.bootify.biblioteca.domain.Prestamo;
 import io.bootify.biblioteca.model.PrestamoDTO;
+import io.bootify.biblioteca.repos.BibliotecarioRepository;
 import io.bootify.biblioteca.repos.LectorRepository;
 import io.bootify.biblioteca.repos.LibroRepository;
 import io.bootify.biblioteca.repos.PrestamoRepository;
@@ -19,12 +20,14 @@ public class PrestamoService {
     private final PrestamoRepository prestamoRepository;
     private final LectorRepository lectorRepository;
     private final LibroRepository libroRepository;
+    private final BibliotecarioRepository bibliotecarioRepository;
 
     public PrestamoService(final PrestamoRepository prestamoRepository,
-            final LectorRepository lectorRepository, final LibroRepository libroRepository) {
+                           final LectorRepository lectorRepository, final LibroRepository libroRepository, BibliotecarioRepository bibliotecarioRepository) {
         this.prestamoRepository = prestamoRepository;
         this.lectorRepository = lectorRepository;
         this.libroRepository = libroRepository;
+        this.bibliotecarioRepository = bibliotecarioRepository;
     }
 
     public List<PrestamoDTO> findAll() {
@@ -41,10 +44,18 @@ public class PrestamoService {
     }
 
     public Long create(final PrestamoDTO prestamoDTO) {
+        if (isBookInAnotherLoan(prestamoDTO.getLibro())) {
+            throw new IllegalStateException("El libro ya está en un préstamo");
+        }
+        if (bibliotecarioRepository.count() == 0) {
+            throw new IllegalStateException("Debe existir al menos un bibliotecario para crear un préstamo");
+        }
+
         final Prestamo prestamo = new Prestamo();
         mapToEntity(prestamoDTO, prestamo);
         return prestamoRepository.save(prestamo).getIdPrestamo();
     }
+
 
     public void update(final Long idPrestamo, final PrestamoDTO prestamoDTO) {
         final Prestamo prestamo = prestamoRepository.findById(idPrestamo)
@@ -56,6 +67,15 @@ public class PrestamoService {
     public void delete(final Long idPrestamo) {
         prestamoRepository.deleteById(idPrestamo);
     }
+
+    private boolean isBookInAnotherLoan(final Long bookId) {
+        Libro libro = libroRepository.findById(bookId)
+                .orElseThrow(() -> new NotFoundException("Libro no encontrado"));
+        List<Prestamo> existingLoans = prestamoRepository.findByLibro(libro);
+        return existingLoans != null && !existingLoans.isEmpty();
+    }
+
+
 
     private PrestamoDTO mapToDTO(final Prestamo prestamo, final PrestamoDTO prestamoDTO) {
         prestamoDTO.setIdPrestamo(prestamo.getIdPrestamo());

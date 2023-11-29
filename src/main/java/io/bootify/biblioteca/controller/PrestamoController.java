@@ -67,14 +67,20 @@ public class PrestamoController {
 
     @PostMapping("/add")
     public String add(@ModelAttribute("prestamo") @Valid final PrestamoDTO prestamoDTO,
-            final BindingResult bindingResult, final RedirectAttributes redirectAttributes) {
+                      final BindingResult bindingResult, final RedirectAttributes redirectAttributes) {
         if (bindingResult.hasErrors()) {
             return "prestamo/add";
         }
-        prestamoService.create(prestamoDTO);
-        redirectAttributes.addFlashAttribute(WebUtils.MSG_SUCCESS, WebUtils.getMessage("prestamo.create.success"));
+        try {
+            prestamoService.create(prestamoDTO);
+            redirectAttributes.addFlashAttribute(WebUtils.MSG_SUCCESS, WebUtils.getMessage("prestamo.create.success"));
+        } catch (IllegalStateException e) {
+            redirectAttributes.addFlashAttribute(WebUtils.MSG_ERROR, e.getMessage());
+            return "redirect:/prestamos/add";
+        }
         return "redirect:/prestamos";
     }
+
 
     @GetMapping("/edit/{idPrestamo}")
     public String edit(@PathVariable final Long idPrestamo, final Model model) {
